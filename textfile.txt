@@ -1,0 +1,2 @@
+2023-07-02 18:16:15.284974 Total time taken for Pandas to read the file is: 0:00:00.187674
+2023-07-02 18:16:15.287301 The dataset has Rows 41188 and Columns 21 
