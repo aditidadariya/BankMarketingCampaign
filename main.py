@@ -118,6 +118,11 @@ if len(columns_with_null) > 0:
 else:
     print('All the null values are substituted by the most frequently used value')
     
+# ========================= EXPLORATORY DATA ANALYSIS ===============================
+
+# Calling FindUniqueValues function to find the unique values in dataset
+util.FindUniqueValues(df_data)
+
 # ========================= TRANSFORM CATEGORICAL VALUES ============================
 
 # Transform the categorical values into numerical values to 

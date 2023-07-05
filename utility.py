@@ -22,6 +22,7 @@ from sklearn.preprocessing import QuantileTransformer
 from scipy.stats import mode
 
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 #==============================================================================
 
@@ -240,4 +241,38 @@ def BoxPlotNumericColumns(df):
     plt.xticks(rotation=45)
     plt.show()
     
-    
+# FindUniqueValues function is defined to retrieve and plot the unique values in data
+def FindUniqueValues(df):
+
+    # Find unique values in each column
+    for i, col in enumerate(df.columns):
+        # Get the unique values in the column
+        unique_values = df[col].unique()
+        print("In {}, there are {} number of unique values".format(col.upper(), len(unique_values)))
+        # Get the datatype of column
+        datatype = df[col].dtype
+        # Set the figure size
+        #plt.figure(figsize=(10, 6))
+
+        if datatype == "object":
+            # Create the countplot
+            sns.countplot(data=df, y=col)
+
+            # Set labels and title
+            plt.xlabel('COUNT')
+            plt.ylabel(col.upper())
+            plt.title('Countplot for {}'.format(col))
+
+        elif datatype == 'int64' or datatype == 'float64':
+            # Count the occurrences of each unique value in the column
+            value_counts = df[col].value_counts()
+            # Create the bar plot
+            plt.bar(value_counts.index, value_counts.values)
+
+            # Add labels and title
+            plt.xlabel(col.upper())
+            plt.ylabel('COUNT')
+            plt.title('Bar Plot for {}'.format(col))
+
+        # Show the plot
+        plt.show() 
