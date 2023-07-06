@@ -108,6 +108,9 @@ columns_with_null = df_data.columns[df_data.isnull().any()].tolist()
 # ReplaceNullValues function is called to replace null values with its most frequently used value by SimpleImputer method
 df_data = util.ReplaceNullValues(df_data, columns_with_null)
 
+# Convert the columns names to upper case
+df_data.columns = df_data.columns.str.upper()
+
 # Verify the data types of each variables and correct it
 df_data = util.CorrectDTypes(df_data)
 
@@ -122,6 +125,9 @@ else:
 
 # Calling FindUniqueValues function to find the unique values in dataset
 util.FindUniqueValues(df_data)
+
+# Calling RelationshipAgeWise function to find a relationship between Age with Job and Education
+util.RelationshipAgeWise(df_data,'AGE','JOB','EDUCATION')
 
 # ========================= TRANSFORM CATEGORICAL VALUES ============================
 
@@ -141,6 +147,8 @@ util.Newline()
 
 # ========================= FIND THE OUTLIERS USING IQR =============================
 
+print("Outlier detection by Interquantile Range method:")
+
 # Find the outliers in dataset by Interquantile Range technique
 util.OutliersIQR(df_data)
 
@@ -148,6 +156,8 @@ util.OutliersIQR(df_data)
 util.Newline()
 
 # ========================= FIND THE OUTLIERS USING ZScore ===========================
+
+print("Outlier detection by ZScore method:")
 
 # Find the outliers in dataset by ZScore technique and impute the outliers using QuantileTransformer technique
 util.OutliersZScore(df_data)
@@ -159,7 +169,7 @@ util.Newline()
 
 # Find the count of each target category
 print('The count of each category in the target variable is:')
-print(df_data['y'].value_counts())
+print(df_data['Y'].value_counts())
 
 # Add a new line here
 util.Newline()
@@ -170,8 +180,8 @@ util.Newline()
 # ============================ DIVIDE THE DATASET ===================================
 
 # Divide the dataset into Features and Target
-X = df_data.drop('y', axis=1)
-y = df_data['y']
+X = df_data.drop('Y', axis=1)
+y = df_data['Y']
 y = y.to_frame()
 
 # ============================ BALANCE THE DATASET ==================================

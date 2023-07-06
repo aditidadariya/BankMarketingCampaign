@@ -233,7 +233,7 @@ def BoxPlotNumericColumns(df):
     numeric_columns = df.select_dtypes(include=['float64', 'int64']).columns
 
     # Plot box plots for numeric columns
-    plt.figure(figsize=(10, 8))
+    plt.figure(figsize=(12, 6))
     df[numeric_columns].boxplot()
     plt.title('Box Plot for int64 and float64 Columns')
     plt.xlabel('Variables')
@@ -276,3 +276,26 @@ def FindUniqueValues(df):
 
         # Show the plot
         plt.show() 
+        # Add a new line here
+        Newline()
+
+# RelationshipAgeWise function is defined to find a relationship between AGE with 2 variables
+def RelationshipAgeWise(df, y_axis, x_axis, hue_col):
+    plt.figure(figsize=(10, 8))  # Set the figure size (optional)
+
+    # Create the box plot
+    ax = sns.barplot(x=df[x_axis], y=df[y_axis], hue=df[hue_col])
+
+    # Add labels and title
+    plt.xlabel(x_axis)
+    plt.ylabel(y_axis)
+    plt.title('Relationship between {} by {} and {}'.format(y_axis, x_axis, hue_col))
+
+    # Move the legend outside the plot
+    ax.legend(title=hue_col, bbox_to_anchor=(1.05, 1), loc='upper left')
+
+    # Rotate x-axis labels if needed
+    plt.xticks(rotation=45)
+
+    # Show the plot
+    plt.show()
