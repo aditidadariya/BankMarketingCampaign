@@ -191,7 +191,7 @@ def OutliersZScore(df):
     # Loop through each numerical column
     for column in numerical_columns:
         # Keeping 'age' variable intact
-        if column != 'age':
+        if column != 'AGE':
             # Compute the Z-scores
             z_scores = np.abs(stats.zscore(df[column]))
         
@@ -200,19 +200,30 @@ def OutliersZScore(df):
             outlier_indices = outliers[0]
             outlier_values = df.iloc[outlier_indices]
             # Print the outliers for the column
-            if not outlier_values.empty:
+            if not outlier_values.empty and outlier_values.shape[0] > 100 :
                 print(f"{outlier_values.shape[0]} number of row are Outliers in column {column}")
                 # Correct the outliers in dataset
                 df[column] = ImputeOutliers(z_scores, threshold, df, column)
     return df
 
 
-# LabelEncoding function is defined to convert the categorical values in numerical values
-def LabelEncoding(df):
+# EncodingVariable function is defined to encode the categorical variables to numeric
+def EncodingVariable(df):
     label_encoder = LabelEncoder()
-    for column in df.columns:
-        if df[column].dtype == 'object':
-            df[column] = label_encoder.fit_transform(df[column])
+    onehot_encoder = OneHotEncoder(sparse=False)
+
+    # Navigate to each column in dataframe
+    for i, col in enumerate(df.columns):
+        # Find the datatype of columns
+        datatype = df[col].dtype
+
+        if datatype == 'object':
+            # Get the unique values in the column
+            unique_values = df[col].unique()
+            if len(unique_values) == 2:
+                df[col] = label_encoder.fit_transform(df[col])
+            else:
+                df[col] = onehot_encoder.fit_transform(df[[col]])
     return df
 
 # STDScaling function is defined to scale the data between mean 0 and std 1
@@ -264,6 +275,13 @@ def FindUniqueValues(df):
             plt.title('Countplot for {}'.format(col))
 
         elif datatype == 'int64' or datatype == 'float64':
+            # Evaluate the mean and standard deviation of the column
+            mean = df[col].mean()
+            std = df[col].std()
+            # Print the mean and standard deviation
+            print("Mean: ", mean)
+            print("Standard deviation:", std)
+            
             # Count the occurrences of each unique value in the column
             value_counts = df[col].value_counts()
             # Create the bar plot
@@ -279,23 +297,57 @@ def FindUniqueValues(df):
         # Add a new line here
         Newline()
 
-# RelationshipAgeWise function is defined to find a relationship between AGE with 2 variables
-def RelationshipAgeWise(df, y_axis, x_axis, hue_col):
-    plt.figure(figsize=(10, 8))  # Set the figure size (optional)
-
-    # Create the box plot
-    ax = sns.barplot(x=df[x_axis], y=df[y_axis], hue=df[hue_col])
-
-    # Add labels and title
-    plt.xlabel(x_axis)
-    plt.ylabel(y_axis)
-    plt.title('Relationship between {} by {} and {}'.format(y_axis, x_axis, hue_col))
-
-    # Move the legend outside the plot
-    ax.legend(title=hue_col, bbox_to_anchor=(1.05, 1), loc='upper left')
-
-    # Rotate x-axis labels if needed
-    plt.xticks(rotation=45)
-
+# PlotHeatMap function is defined to create Heat Map to understand the correlation
+def PlotHeatMap(df):
+    # Customizing the heatmap
+    numeric_columns = df.select_dtypes(include=['int64', 'float64']).columns
+    subset_df = df[numeric_columns]
+    correlation_matrix = subset_df.corr()
+    # Print the column names
+    plt.figure(figsize=(10, 8))
+    sns.heatmap(correlation_matrix, cmap='coolwarm', linewidths=0.5, annot=True)
+    plt.title('Correlation Matrix')
     # Show the plot
+    plt.show() 
+    
+    # Add a new line here
+    Newline()
+
+    # Convert the correlation matrix to dataframe
+    corr_df = pd.DataFrame(correlation_matrix)
+    # Iterate in correlation matrix and display the relation where correlation is greater than 0.50
+    for i in range(len(corr_df.columns)):
+        for j in range(i+1, len(corr_df.columns)):
+            value = corr_df.iloc[i, j]
+            if value > 0.50 and value != 1:
+                col1 = corr_df.columns[i]
+                col2 = corr_df.columns[j]
+                print(f"Correlation between {col1} and {col2}: {value:.4f}")
+
+# Pairplot function is defined to create a pair plot between variables
+def Pairplot(df):
+    sns.pairplot(df)
     plt.show()
+
+# BarPlot function is defined to create a bar plot with 2 variables
+def BarPlot(df, x_axis, hue_name):
+    # Group by x_axis and hue_name and calculate the value counts
+    grouped = df.groupby([x_axis, hue_name]).size()
+    # Calculate the total counts for each level in hue_name
+    total_counts = grouped.groupby(level=hue_name).sum()
+    # Plot the count plot with annotations for each bar
+    plt.figure(figsize=(12, 6))
+    ax = sns.countplot(x=x_axis, hue=hue_name, data=df)
+    ax.set_ylabel(hue_name)
+    ax.legend(title=hue_name, bbox_to_anchor=(1, 1))
+    # Rotate x-axis labels if needed
+    plt.xticks(rotation=45)   
+    # Add annotations for each bar
+    for p in ax.patches:
+        width = p.get_width()
+        height = p.get_height()
+        x, y = p.get_xy()
+        ax.annotate(height, ((x) + width / 2, (y) + height / 2), ha='center', va='bottom')
+    # Display the plot
+    plt.show()
+

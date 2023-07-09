@@ -120,19 +120,48 @@ if len(columns_with_null) > 0:
     print('There are still few null values available in the data')
 else:
     print('All the null values are substituted by the most frequently used value')
-    
+
+# Add a new line here
+util.Newline()
+
 # ========================= EXPLORATORY DATA ANALYSIS ===============================
 
+print('Finding the correlation between numeric variables by heat map')
+# Calling PlotHeatMap function to understand the correlation between variables
+util.PlotHeatMap(df_data)
+
+# Add a new line here
+util.Newline()
+
+print("Finding a relation between highly correlated variables by pair plot")
+# Calling PairPlot to plot a relation between highly correlation variables
+util.Pairplot(df_data[['EMP.VAR.RATE','EURIBOR3M','NR.EMPLOYED']])
+
+# Add a new line here
+util.Newline()
+
+print('Finding the unique values of each variables')
 # Calling FindUniqueValues function to find the unique values in dataset
 util.FindUniqueValues(df_data)
 
-# Calling RelationshipAgeWise function to find a relationship between Age with Job and Education
-util.RelationshipAgeWise(df_data,'AGE','JOB','EDUCATION')
+# Add a new line here
+util.Newline()
+
+print('Finding the relation of categorical variables with target variable')
+# Navigate to all columns
+for i, col in enumerate(df_data.columns):
+    # Get the datatype of column
+    datatype = df_data[col].dtype
+    if datatype == "object" and col != "Y" :
+        # Calling BarPlot function to understand the relation of categorical variable with Target Y variable
+        util.BarPlot(df_data, col, 'Y')
 
 # ========================= TRANSFORM CATEGORICAL VALUES ============================
 
-# Transform the categorical values into numerical values to 
-df_data = util.LabelEncoding(df_data)
+# Calling EncodingVariable to encode the categorical variable to numeric
+# Binary Categorical variables are converted using Label Encoder
+# Multi Categorical variables are converted using One-Hot Encoder
+df_data = util.EncodingVariable(df_data)
 
 # Add a new line here
 util.Newline()
