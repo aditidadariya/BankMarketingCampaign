@@ -7,10 +7,14 @@ Created on Thu Jun 22 15:55:45 2023
 """
 
 import utility as util
+import yaml
+
 import os
 import sys
 import numpy as np
+
 from imblearn.over_sampling import SMOTE
+from sklearn.model_selection import train_test_split
 
 # ========================== CREATE YAML FILE ========================================
 
@@ -31,8 +35,8 @@ df_data = util.PD_read_csv(param['filename'], param['delimiter'], param['columns
 
 if len(df_data) > 0:
     # Write data in text file
-    util.WriteInTextFile("The dataset has Rows {} and Columns {} ".format(df_data.shape[0], df_data.shape[1]))
-    print("The dataset has Rows {} and Columns {} ".format(df_data.shape[0], df_data.shape[1]))
+    util.WriteInTextFile("The dataset has {} Rows and {} Columns.".format(df_data.shape[0], df_data.shape[1]))
+    print("The dataset has {} Rows and {} Columns.".format(df_data.shape[0], df_data.shape[1]))
 else:
     print("Error while reading the dataset")
     sys.exit(1)
@@ -116,6 +120,7 @@ df_data = util.CorrectDTypes(df_data)
 
 # Find the columns having null values
 columns_with_null = df_data.columns[df_data.isnull().any()].tolist()
+
 if len(columns_with_null) > 0:
     print('There are still few null values available in the data')
 else:
@@ -189,7 +194,8 @@ util.Newline()
 print("Outlier detection by ZScore method:")
 
 # Find the outliers in dataset by ZScore technique and impute the outliers using QuantileTransformer technique
-util.OutliersZScore(df_data)
+#util.OutliersZScore(df_data)
+util.OutliersZScore_latest(df_data)
 
 # Add a new line here
 util.Newline()
@@ -210,22 +216,45 @@ util.Newline()
 
 # Divide the dataset into Features and Target
 X = df_data.drop('Y', axis=1)
-y = df_data['Y']
-y = y.to_frame()
+Y = df_data['Y']
+Y = Y.to_frame()
 
 # ============================ BALANCE THE DATASET ==================================
 
 # Balance the dataset using SMOTE technique
 smote = SMOTE()
-X_features, y_target = smote.fit_resample(X, y)
+X_features, Y_target = smote.fit_resample(X, Y)
 
 # Find the count of each target category
-print('The count of each category in the target variable is:')
-print(y_target.value_counts())
+print('The count of each category in the target variable after balancing the data is:')
+print(Y_target.value_counts())
 
 # Add a new line here
 util.Newline()
 
-print('The shape of Features is now {} and Target is {}'.format(X_features.shape, y_target.shape))
+print('The shape of Features is now {} and Target is {}'.format(X_features.shape, Y_target.shape))
+
+# ====================== HOLD OUT MOETHOD OF DATA SPLIT =============================
+
+# Clear lists
+param["models"].clear()
+param["names"].clear()
+param["results"].clear()
+param["basicscore"].clear()
+
+# The training set and test set has been splited below using the feature and target dataframes
+X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.3, random_state=None)
+
+# ============================== BASIC MODEL ========================================
+
+# Calling CreateModels function
+models = util.CreateModels(param["models"], param["n_estimators"])
+
+# Calling BasicModel function
+basicscores = util.BasicModel(models, X_train, Y_train, X_test, Y_test)
+# Create a dataframe to store accuracy
+dfbasicscore = pd.DataFrame(basicscores) 
+print("Accuracy of each model:")   
+print(dfbasicscore)
 
 

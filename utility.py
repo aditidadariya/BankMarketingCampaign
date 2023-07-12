@@ -14,15 +14,37 @@ from datetime import datetime
 
 from pandas import read_csv
 from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import OneHotEncoder
 from sklearn.preprocessing import StandardScaler
 from scipy import stats
 from sklearn.impute import SimpleImputer
-
 from sklearn.preprocessing import QuantileTransformer
 from scipy.stats import mode
 
 import matplotlib.pyplot as plt
 import seaborn as sns
+from scipy.stats import zscore
+
+from sklearn.linear_model import LogisticRegression
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import AdaBoostClassifier
+from xgboost import XGBClassifier
+from sklearn.ensemble import HistGradientBoostingClassifier
+
+# Import scikit-learn metrics module for accuracy calculation
+from sklearn import metrics 
+# Import confusion_matrix function
+from sklearn.metrics import confusion_matrix
+# Import classification_report function
+from sklearn.metrics import classification_report
+# Import ConfusionMatrixDisplay function to plot confusion matrix
+from sklearn.metrics import ConfusionMatrixDisplay
+# Import StratifiedKFold function
+from sklearn.model_selection import StratifiedKFold
+# Import GridSearchCV function
+from sklearn.model_selection import GridSearchCV
 
 #==============================================================================
 
@@ -206,6 +228,32 @@ def OutliersZScore(df):
                 df[column] = ImputeOutliers(z_scores, threshold, df, column)
     return df
 
+# Find the outliers using ZScore technique
+def OutliersZScore_latest(df):
+    # Iterate over each column in the DataFrame
+    for column in df.columns:
+        # Exclude the AGE column
+        if column != 'AGE':
+            # Calculate Z-scores for the column
+            z_scores = zscore(df[column])
+
+            # Find the indices of outliers using a threshold (e.g., Z-score > 3 or < -3)
+            outliers_indices = (z_scores > 3) | (z_scores < -3)
+            
+            outlier_values = df.loc[outliers_indices]
+            # Print the outliers for the column
+            if not outlier_values.empty and outlier_values.shape[0] > 100 :
+                print(f"{outlier_values.shape[0]} number of row are Outliers in column {column}")
+                
+            # Impute the outliers with QuantileTransformer
+            quantile_transformer = QuantileTransformer()
+            imputed_values = quantile_transformer.fit_transform(df[column].values.reshape(-1, 1))
+
+            # Update the original DataFrame with imputed values for outliers
+            #df_outliers_imputed.loc[outliers_indices, column] = imputed_values[outliers_indices].flatten()
+            df.loc[outliers_indices, column] = imputed_values[outliers_indices].flatten()
+    return df
+
 
 # EncodingVariable function is defined to encode the categorical variables to numeric
 def EncodingVariable(df):
@@ -350,4 +398,54 @@ def BarPlot(df, x_axis, hue_name):
         ax.annotate(height, ((x) + width / 2, (y) + height / 2), ha='center', va='bottom')
     # Display the plot
     plt.show()
+
+# Defined CreateModels function to create the model object
+def CreateModels(models, n_estimators):
+    # Define Linear models
+    models.append(('LR', LogisticRegression()))
+    models.append(('LDA', LinearDiscriminantAnalysis()))
+    # Define Ensemble Models
+    models.append(('RFC', RandomForestClassifier(n_estimators=n_estimators, random_state=42)))
+    base_estimator = DecisionTreeClassifier(max_depth=1)
+    models.append(('ADAB', AdaBoostClassifier(base_estimator=base_estimator, n_estimators=n_estimators, random_state=42)))
+    # Define Boosting Models
+    models.append(('XGB', XGBClassifier()))
+    models.append(('HGBC', HistGradientBoostingClassifier(max_bins=10, max_iter=100)))
+    
+    return models
+
+# Define BuildModel function 
+# to evaluate the models, display the confusion matrix and plot it
+# to display the classification_report
+def BasicModel(models, X_train, Y_train, X_test, Y_test):
+    results = []
+    names = []
+    basicscore = []
+    # evaluate each model in turn
+    for name, model in models:
+        # Train Decision Tree Classifer
+        modelfit = model.fit(X_train,Y_train)
+        #Predict the response for test dataset
+        Y_predict = modelfit.predict(X_test)
+        results.append(metrics.accuracy_score(Y_test, Y_predict))
+        names.append(name)
+        # Print the prediction of test set
+        print('On %s Accuracy is: %f ' % (name, metrics.accuracy_score(Y_test, Y_predict)*100))
+        basicscore.append({"Model Name": name, "Accuracy": metrics.accuracy_score(Y_test, Y_predict)*100})
+        # Print Confusion Matrix and Classification Report
+        print("Confusion matrix:")
+        print(confusion_matrix(Y_test, Y_predict))
+        print("Classification report:")
+        print(classification_report(Y_test, Y_predict))
+        # Plot Confusion Matrix
+        print("Confusion matrix plot:")
+        cm = confusion_matrix(Y_test, Y_predict, labels=modelfit.classes_)
+        cmdisp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=modelfit.classes_)
+        cmdisp.plot()
+        plt.show()
+        
+        # Add a new line here
+        Newline()
+        
+    return basicscore
 
