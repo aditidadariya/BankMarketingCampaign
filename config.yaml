@@ -23,3 +23,10 @@ columns:
     - euribor3m
     - nr.employed
     - y
+
+# Define lists
+models: []
+names: []
+results: []
+basicscore: []
+n_estimators: 50
