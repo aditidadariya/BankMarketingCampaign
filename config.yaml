@@ -30,3 +30,24 @@ names: []
 results: []
 basicscore: []
 n_estimators: 50
+randstate: [10,20,30,40,50]
+final_models: []
+
+# Setup the hyperparameters for tuning process for all models
+lr_grid: {'solver': ['sag', 'saga'], 
+           'penalty': ['l2']}
+
+lda_grid: {'solver': ['svd', 'lsqr', 'eigen']}
+
+rf_grid: {'max_depth': [1, 3, 5, 7],
+          'n_estimators': [10, 50, 100, 200],
+          'max_features': ['sqrt', 'log2']}
+
+adab_grid: {'n_estimators': [10, 50, 100],
+            'learning_rate': [0.001, 0.01, 0.1, 1.0]}
+
+xgb_grid: {'max_depth': [1, 3, 5, 7],
+            'min_child_weight': [1,2]}
+
+hgbc_grid: {'max_bins': [10, 30, 50, 70],
+             'max_iter': [100,200]}
