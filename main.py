@@ -247,6 +247,12 @@ baseacc = util.BasicModel(param["models"], X_train, Y_train, X_test, Y_test)
 
 # ============================== CREATE MODEL ========================================
 
+# Clear lists
+param["models"].clear()
+param["names"].clear()
+param["results"].clear()
+param["basicscore"].clear()
+
 # Calling CreateModels function
 modelobjects = util.CreateModels(param["models"]) #, param["n_estimators"])
 
