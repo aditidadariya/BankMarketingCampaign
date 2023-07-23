@@ -25,6 +25,12 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy.stats import zscore
 
+# Import RandomUnderSampler, SMOTE, Pipeline to balance the dataset
+from imblearn.under_sampling import RandomUnderSampler
+from imblearn.over_sampling import SMOTE
+from imblearn.pipeline import Pipeline
+
+from sklearn.svm import SVC
 from sklearn.linear_model import LogisticRegression
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.tree import DecisionTreeClassifier
@@ -35,16 +41,20 @@ from sklearn.ensemble import HistGradientBoostingClassifier
 
 # Import scikit-learn metrics module for accuracy calculation
 from sklearn import metrics 
+from sklearn.model_selection import train_test_split
 # Import confusion_matrix function
 from sklearn.metrics import confusion_matrix
 # Import classification_report function
 from sklearn.metrics import classification_report
 # Import ConfusionMatrixDisplay function to plot confusion matrix
 from sklearn.metrics import ConfusionMatrixDisplay
+
+from sklearn.model_selection import RepeatedStratifiedKFold
 # Import StratifiedKFold function
 from sklearn.model_selection import StratifiedKFold
 # Import GridSearchCV function
 from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import cross_val_score
 
 #==============================================================================
 
@@ -204,32 +214,6 @@ def OutliersIQR(df):
 
 # Find the outliers using ZScore technique
 def OutliersZScore(df):
-    # Define the numerical columns in the dataframe
-    numerical_columns = df.select_dtypes(include=['float64', 'int64']).columns
-    
-    # Define the threshold
-    threshold = 3
-
-    # Loop through each numerical column
-    for column in numerical_columns:
-        # Keeping 'age' variable intact
-        if column != 'AGE':
-            # Compute the Z-scores
-            z_scores = np.abs(stats.zscore(df[column]))
-        
-            # Find the outliers
-            outliers = np.where(z_scores > threshold)
-            outlier_indices = outliers[0]
-            outlier_values = df.iloc[outlier_indices]
-            # Print the outliers for the column
-            if not outlier_values.empty and outlier_values.shape[0] > 100 :
-                print(f"{outlier_values.shape[0]} number of row are Outliers in column {column}")
-                # Correct the outliers in dataset
-                df[column] = ImputeOutliers(z_scores, threshold, df, column)
-    return df
-
-# Find the outliers using ZScore technique
-def OutliersZScore_latest(df):
     # Iterate over each column in the DataFrame
     for column in df.columns:
         # Exclude the AGE column
@@ -253,7 +237,6 @@ def OutliersZScore_latest(df):
             #df_outliers_imputed.loc[outliers_indices, column] = imputed_values[outliers_indices].flatten()
             df.loc[outliers_indices, column] = imputed_values[outliers_indices].flatten()
     return df
-
 
 # EncodingVariable function is defined to encode the categorical variables to numeric
 def EncodingVariable(df):
@@ -411,7 +394,6 @@ def CreateModels(models, n_estimators):
     # Define Boosting Models
     models.append(('XGB', XGBClassifier()))
     models.append(('HGBC', HistGradientBoostingClassifier(max_bins=10, max_iter=100)))
-    
     return models
 
 # Define BuildModel function 
@@ -448,4 +430,175 @@ def BasicModel(models, X_train, Y_train, X_test, Y_test):
         Newline()
         
     return basicscore
+
+# Define BuildModelRS function to evaluate the models based on the random states
+def BuildModelRS(models,randstate, X, Y):
+    results = []
+    names = []
+    score = []
+    # evaluate each model in turn
+    for name, model in models:
+        # for loop will run the decision tree model on different random states to find the accuracy
+        for n in randstate:
+            # The training set and test set has been splited below using the feature and target dataframes
+            X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.3, random_state=n)
+            # Train Decision Tree Classifer
+            modelfit = model.fit(X_train,Y_train)
+            #Predict the response for test dataset
+            Y_predict = modelfit.predict(X_test)
+            results.append(metrics.accuracy_score(Y_test, Y_predict))
+            names.append(name)
+            # Store the prediction of test set
+            score.append({"Model Name": name, "Random State": n, "Accuracy": metrics.accuracy_score(Y_test, Y_predict)*100})
+    return score
+
+# FindBestRandomState function is defined to retrieve the best performed random state of all models
+def FindBestRandomState(df):
+    # Group the DataFrame by column 1
+    groupmodels = df.groupby('Model Name')
+    randstatelist = []
+    randstatelist.clear()
+    # Iterate over each group
+    for name, data in groupmodels:
+        # Find the maximum value in column 3
+        max_value = data['Accuracy'].max()
+        # Find the corresponding value in column 2
+        bestrandstate = data.loc[data['Accuracy'] == max_value, 'Random State'].values[0]
+        randstatelist.append({"Model Name": name, "Random State": bestrandstate, 'Accuracy': max_value})
+        # Print the value in column 2
+    #print(randstatelist)
+    dfrsmodels = pd.DataFrame(randstatelist)
+    return dfrsmodels
+
+# Define BalanceData function to balance the dataset
+def BalanceData(X,Y):
+    # Define oversmaple with SMOTE function
+    oversample = SMOTE()
+    # Define undersample with RandomUnderSampler function
+    undersample = RandomUnderSampler()
+    # Define Steps for oversample and undersample
+    steps = [('o', oversample), ('u', undersample)]
+    # Define the pipeline with the steps
+    pipeline = Pipeline(steps = steps)
+    # Fit the features and target and resample them to get X and Y
+    X_Balanced, Y_Balanced = pipeline.fit_resample(X, Y)
+    return X_Balanced, Y_Balanced
+
+# Define function BuildModelBalCV on the balanced data and utilizing cross validation
+def BuildModelBalCV(models, X, Y):
+    results = []
+    names = []
+    score = []
+    # evaluate each model in turn  
+    for name, model in models:
+        # define StratifiedKFold
+        skfold = StratifiedKFold(n_splits=10, random_state= None, shuffle=True)
+        # get the X and Y using StratifiedKFold
+        skfold.get_n_splits(X,Y)
+        # evaluate each model with cross validation
+        if name == "ADAB":
+            # evaluate the model
+            rskfold = RepeatedStratifiedKFold(n_splits=10, n_repeats=3, random_state=None)
+            cv_results = cross_val_score(model, X, Y.values.ravel(), scoring='accuracy', cv=rskfold, n_jobs=-1, error_score='raise')
+        elif name == 'XGB':
+            rskfold = RepeatedStratifiedKFold(n_splits=10, n_repeats=3, random_state=None)
+            cv_results = cross_val_score(model, X, Y.values.ravel(), cv=rskfold, scoring='accuracy', n_jobs=-1)#, early_stopping_rounds=10)
+        else:
+            cv_results = cross_val_score(model, X, Y, cv=skfold, scoring='accuracy')
+        results.append(cv_results)
+        names.append(name)
+        # print the results
+        #print('On %s: Mean is %f and STD is %f' % (name, cv_results.mean()*100, cv_results.std()))
+        score.append({"Model Name": name, "Mean": cv_results.mean()*100, "STD": cv_results.std()})
+    return score, results, names
+
+# BestHyperparameters function is defined to find the best hyperparameter from all moels
+def BestHyperparameters(modelname, models, dfrs, grid, X_Balanced, Y_Balanced):
+    for name, model in models:
+        if name == 'ADAB':
+            escore = 'raise'
+        else:
+            escore = 0
+            
+        if name == modelname:
+            # Retrieve the best random state values derived above
+            rs = dfrs.loc[dfrs["Model Name"] == name,['Random State']]
+            # define StratifiedKFold
+            skfold = StratifiedKFold(n_splits=10, random_state=rs.iloc[0][0], shuffle=True)
+            # define search
+            search = GridSearchCV(estimator=model, param_grid=grid, scoring='accuracy', cv=skfold, n_jobs=-1, error_score=escore)
+            # perform the search
+            grid_results = search.fit(X_Balanced, Y_Balanced.values.ravel())
+            # summarize
+            print('%s Mean Accuracy: %f' % (name, grid_results.best_score_))
+            print('Config: %s' % grid_results.best_params_)
+            # summarize results
+            #print("Best Accuracy: %f using %s" % (results.best_score_, results.best_params_))
+            #means = results.cv_results_['mean_test_score']
+            #stds = results.cv_results_['std_test_score']
+            #params = results.cv_results_['params']
+    return grid_results
+
+# Defined CreateFinalModels function to create the model object with hyperparameters
+def CreateFinalModels(models, parameters):
+    # Define Linear models
+    models.append(('LR', LogisticRegression(#C = parameters[0]['C'], 
+                                            #max_iter = parameters[0]['max_iter'],
+                                            penalty = parameters[0]['penalty'], 
+                                            solver = parameters[0]['solver'])))
+    
+    models.append(('LDA', LinearDiscriminantAnalysis(solver = parameters[1]['solver'])))
+    
+    # Define Ensemble Models
+    #models.append(('RFC', RandomForestClassifier(n_estimators=n_estimators, random_state=42)))
+    models.append(('RFC', RandomForestClassifier(max_depth = parameters[2]['max_depth'],
+                                                max_features = parameters[2]['max_features'], 
+                                                n_estimators = parameters[2]['n_estimators'])))
+    
+    base_estimator = DecisionTreeClassifier(max_depth=1)
+    #base_estimator = DecisionTreeClassifier()
+        #models.append(('ADAB', AdaBoostClassifier(base_estimator=base_estimator, n_estimators=n_estimators, random_state=42)))
+    models.append(('ADAB', AdaBoostClassifier(base_estimator=base_estimator,
+                                             learning_rate = parameters[3]['learning_rate'],
+                                             n_estimators = parameters[3]['n_estimators'])))
+    
+    # Define Boosting Models
+    models.append(('XGB', XGBClassifier(max_depth = parameters[4]['max_depth'],
+                                       min_child_weight = parameters[4]['min_child_weight'])))
+    
+    #models.append(('HGBC', HistGradientBoostingClassifier(max_bins=10, max_iter=100)))
+    models.append(('HGBC', HistGradientBoostingClassifier(max_bins = parameters[5]['max_bins'],
+                                                         max_iter = parameters[5]['max_iter'])))
+    
+    return models
+
+# Define BuildFinalModel function to evaluate models with their hyper-parameters
+def BuildFinalModel(final_models, dfrs, X, Y):
+    #final_models = []
+    final_results = []
+    names = []
+    score = []
+    #final_models.clear()
+    #final_results.clear()
+    names.clear()
+    score.clear()
+    # Evaluate each model in turn 
+    for name, model in final_models:
+        rs = dfrs.loc[dfrs["Model Name"] == name,['Random State']]
+        # Define StratifiedKFold
+        skfold = StratifiedKFold(n_splits = 10, random_state = rs.iloc[0][0], shuffle = True)
+        # Get the X and Y using StratifiedKFold
+        skfold.get_n_splits(X,Y)
+        # Evaluate each model with cross validation
+        cv_results = cross_val_score(model, X, Y, cv=skfold, scoring='accuracy')
+        # Store the cross validationscore into results
+        final_results.append(cv_results)
+        #print(final_results)
+        # Store model name into names
+        names.append(name)
+        # Print the results
+        #print('On %s: Mean is %f and STD is %f' % (name, cv_results.mean(), cv_results.std()))
+        # Store the Model Name, Mean and STD into score list
+        score.append({"Model Name": name, "Accuracy - Mean": cv_results.mean(), "Accuracy - STD": cv_results.std()})
+    return score, names, final_results
 

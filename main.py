@@ -12,9 +12,14 @@ import yaml
 import os
 import sys
 import numpy as np
+import pandas as pd
 
-from imblearn.over_sampling import SMOTE
+from sklearn.svm import SVC
 from sklearn.model_selection import train_test_split
+from matplotlib import pyplot
+
+import warnings
+warnings.filterwarnings("ignore")
 
 # ========================== CREATE YAML FILE ========================================
 
@@ -194,8 +199,7 @@ util.Newline()
 print("Outlier detection by ZScore method:")
 
 # Find the outliers in dataset by ZScore technique and impute the outliers using QuantileTransformer technique
-#util.OutliersZScore(df_data)
-util.OutliersZScore_latest(df_data)
+util.OutliersZScore(df_data)
 
 # Add a new line here
 util.Newline()
@@ -206,11 +210,16 @@ util.Newline()
 print('The count of each category in the target variable is:')
 print(df_data['Y'].value_counts())
 
+# view the percentage distribution of target column
+print('The percentage distribution of target class is: ')
+print(df_data['Y'].value_counts()/float(len(df_data)))
+
 # Add a new line here
 util.Newline()
     
-# Observation: By the output it is clear that the data is imbalance. 
-# SMOTE technique is used to balance the data in further steps
+# Observation: By the output it is clear that the percentage of observations of the 
+# class label 0 and 1 is 88.7% and 11.3%. So, this is a class imbalanced problem. 
+# This will be addresses in subsequent steps
 
 # ============================ DIVIDE THE DATASET ===================================
 
@@ -218,21 +227,6 @@ util.Newline()
 X = df_data.drop('Y', axis=1)
 Y = df_data['Y']
 Y = Y.to_frame()
-
-# ============================ BALANCE THE DATASET ==================================
-
-# Balance the dataset using SMOTE technique
-smote = SMOTE()
-X_features, Y_target = smote.fit_resample(X, Y)
-
-# Find the count of each target category
-print('The count of each category in the target variable after balancing the data is:')
-print(Y_target.value_counts())
-
-# Add a new line here
-util.Newline()
-
-print('The shape of Features is now {} and Target is {}'.format(X_features.shape, Y_target.shape))
 
 # ====================== HOLD OUT MOETHOD OF DATA SPLIT =============================
 
@@ -245,10 +239,18 @@ param["basicscore"].clear()
 # The training set and test set has been splited below using the feature and target dataframes
 X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.3, random_state=None)
 
-# ============================== BASIC MODEL ========================================
+# ============================= BASELINE MODEL =======================================
+
+# Baseline model
+param["models"].append(('SVC', SVC()))
+baseacc = util.BasicModel(param["models"], X_train, Y_train, X_test, Y_test)
+
+# ============================== CREATE MODEL ========================================
 
 # Calling CreateModels function
-models = util.CreateModels(param["models"], param["n_estimators"])
+modelobjects = util.CreateModels(param["models"]) #, param["n_estimators"])
+
+# ============================== BASIC MODEL ========================================
 
 # Calling BasicModel function
 basicscores = util.BasicModel(models, X_train, Y_train, X_test, Y_test)
@@ -257,4 +259,112 @@ dfbasicscore = pd.DataFrame(basicscores)
 print("Accuracy of each model:")   
 print(dfbasicscore)
 
+# Add a new line here
+util.Newline()
+
+# ===================== OPTIMIZING THE MODEL WITH RANDOM STATE ======================
+
+# Calling BuildModelRS to evaluate the models with random states and return the accuracy
+scores = util.BuildModelRS(modelobjects,param["randstate"], X, Y)
+# Create a dataframe to store accuracy
+dfrsscore = pd.DataFrame(scores)
+print("Accuracy of each model after optimizing model with random states:") 
+print(dfrsscore)
+
+# Add a new line here
+util.Newline()
+
+# Calling FindBestRandomState function to find the random state best performed for each model
+dfrsmodels = util.FindBestRandomState(dfrsscore)
+print("The best performed random state for each model:")
+print(dfrsmodels)
+
+# Add a new line here
+util.Newline()
+
+# ============================ BALANCE THE DATASET ==================================
+
+# Calling BalanceData function to balance the dataset using SMOTE and RandomUnderSampler
+X_Balanced, Y_Balanced = util.BalanceData(X,Y)
+# Find the count of each target category
+print('The count of each category in the target variable after balancing the data is:')
+print(Y_Balanced.value_counts())
+
+# Add a new line here
+util.Newline()
+
+print('The shape of Features is now {} and Target is {}'.format(X_Balanced.shape, Y_Balanced.shape))
+
+# Add a new line here
+util.Newline()
+
+# ========== OPTIMIZING THE MODEL ON BALANCED DATA AND CROSS VALIDATION =============
+
+# Calling BuildModelBalCV function to get the accuracy, cross validation results and names of models used
+score, results, names = util.BuildModelBalCV(modelobjects, X_Balanced, Y_Balanced)
+# Create a dataframe to store accuracy
+dfcrossval = pd.DataFrame(score)    
+print("Mean and Standard deviation of each model on balanced data with cross validation:") 
+print(dfcrossval)
+
+# Add a new line here
+util.Newline()
+
+# Compare Algorithms and plot them in boxplot
+pyplot.clf()
+pyplot.boxplot(results, labels=names)
+pyplot.title('Algorithm Comparison')
+pyplot.show()
+
+# Add a new line here
+util.Newline()
+
+# ================ IDENTIFY THE BEST HYPERPARAMETERS OF EACH MODEL ==================
+
+# LR hyperparameter tuning
+lr_para = util.BestHyperparameters('LR', modelobjects, dfrsmodels, param['lr_grid'], X_Balanced, Y_Balanced)
+#print(lr_para.best_params_['solver'], lr_para.best_params_['penalty'])
+
+# LDA hyperparameters tuning
+lda_para = util.BestHyperparameters('LDA', modelobjects, dfrsmodels, param['lda_grid'], X_Balanced, Y_Balanced)
+#print(lda_para.best_params_['solver'])
+
+# RF hyperparameters tuning
+rf_para = util.BestHyperparameters('RFC', modelobjects, dfrsmodels, param['rf_grid'], X_Balanced, Y_Balanced)
+#print(rf_para.best_params_['max_depth'], rf_para.best_params_['n_estimators'],rf_para.best_params_['max_features'])
+
+# ADABoost hyperparameter tuning
+adab_para = util.BestHyperparameters('ADAB', modelobjects, dfrsmodels, param['adab_grid'], X_Balanced, Y_Balanced)
+#print(adab_para.best_params_['n_estimators'], adab_para.best_params_['learning_rate'])
+
+# XGBoost hyperparameter tuning
+xgb_para = util.BestHyperparameters('XGB', modelobjects, dfrsmodels, param['xgb_grid'], X_Balanced, Y_Balanced)
+#print(xgb_para.best_params_['max_depth'], xgb_para.best_params_['min_child_weight']) #, xgb_para.best_params_['lambda'])
+
+# HGBC hyperparameter tuning
+hgbc_para = util.BestHyperparameters('HGBC', modelobjects, dfrsmodels, param['hgbc_grid'], X_Balanced, Y_Balanced)
+#print(hgbc_para.best_params_['max_bins'], hgbc_para.best_params_['max_iter'])
+
+# Store all the best parameters into a list
+parameters = [lr_para.best_params_, lda_para.best_params_, 
+              rf_para.best_params_, adab_para.best_params_, 
+              xgb_para.best_params_, hgbc_para.best_params_]
+
+# == BUILD FINAL MODEL ON BALANCED DATA WITH HYPERPARAMETERS, KFOLD AND CROSS VALIDATION ==
+
+final_models = util.CreateFinalModels(param["final_models"], parameters)
+# Calling BuildFinalModel to get the accuracy after tuning
+score, names, final_results = util.BuildFinalModel(final_models, dfrsscore, X_Balanced, Y_Balanced)
+# Create a dataframe to store accuracy
+dffinalscore = pd.DataFrame(score) 
+print(dffinalscore)
+
+# Give a new line to clearly format the output
+util.Newline()
+
+# Compare Algorithms and plot them in boxplot
+pyplot.clf()
+pyplot.boxplot(final_results, labels=names)
+pyplot.title('Algorithm Comparison')
+pyplot.show()
 
