@@ -9,7 +9,7 @@ Created on Wed Jul 26 13:40:03 2023
 import requests
 url = 'http://localhost:5000/predict_api'
 
-r = requests.post(url,json={"AGE":153,
+r = requests.post(url,json={"AGE":53,
                             "JOB":0,
                             "MARITAL":1,
                             "EDUCATION":0,
