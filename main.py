@@ -15,6 +15,13 @@ import numpy as np
 import pandas as pd
 
 from sklearn.svm import SVC
+from sklearn.linear_model import LogisticRegression
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import AdaBoostClassifier
+from xgboost import XGBClassifier
+from sklearn.ensemble import HistGradientBoostingClassifier
 from sklearn.model_selection import train_test_split
 from matplotlib import pyplot
 
@@ -360,10 +367,20 @@ parameters = [lr_para.best_params_, lda_para.best_params_,
 
 final_models = util.CreateFinalModels(param["final_models"], parameters)
 # Calling BuildFinalModel to get the accuracy after tuning
-score, names, final_results = util.BuildFinalModel(final_models, dfrsscore, X_Balanced, Y_Balanced)
+score, names, final_results, model = util.BuildFinalModel(final_models, dfrsscore, X_Balanced, Y_Balanced)
 # Create a dataframe to store accuracy
 dffinalscore = pd.DataFrame(score) 
 print(dffinalscore)
+
+# Find the best model performed
+max_mean = dffinalscore['Accuracy - Mean'].max()
+max_mean_indx = dffinalscore['Accuracy - Mean'].idxmax()
+model_name = dffinalscore.loc[max_mean_indx, 'Model Name']
+
+# Give a new line to clearly format the output
+util.Newline()
+
+print('%s has the max accuracy as %f' % (model_name, max_mean))
 
 # Give a new line to clearly format the output
 util.Newline()
@@ -374,3 +391,36 @@ pyplot.boxplot(final_results, labels=names)
 pyplot.title('Algorithm Comparison')
 pyplot.show()
 
+############################# BUILD BEST PERFORMED MODEL ############################
+
+
+# Clear lists
+param["models"].clear()
+param["names"].clear()
+param["results"].clear()
+param["basicscore"].clear()
+param["final_models"].clear()
+
+# Define models with the best hyperparameters found earlier
+if model_name == "LR":
+    param['models'].append(('LR', LogisticRegression(penalty = parameters[0]['penalty'], solver = parameters[0]['solver'])))
+elif model_name == "LDA":
+    param['models'].append(('LDA', LinearDiscriminantAnalysis(solver = parameters[1]['solver'])))
+elif model_name == "RPC":
+    param['models'].append(('RFC', RandomForestClassifier(max_depth = parameters[2]['max_depth'], max_features = parameters[2]['max_features'], n_estimators = parameters[2]['n_estimators'])))
+elif model_name == "ADAB":
+    base_estimator = DecisionTreeClassifier(max_depth=1)
+    param['models'].append(('ADAB', AdaBoostClassifier(base_estimator=base_estimator, learning_rate = parameters[3]['learning_rate'], n_estimators = parameters[3]['n_estimators'])))
+elif model_name == "XGB":
+    param['models'].append(('XGB', XGBClassifier(max_depth = parameters[4]['max_depth'], min_child_weight = parameters[4]['min_child_weight'])))
+elif model_name == "HGBC":
+    param['models'].append(('HGBC', HistGradientBoostingClassifier(max_bins = parameters[5]['max_bins'], max_iter = parameters[5]['max_iter'])))
+
+# Calling BuildFinalModel to get the prediction after tuning
+score, name, final_results, model = util.BuildFinalModel(param['models'], dfrsscore, X_Balanced, Y_Balanced)
+
+################################## MODEL.PKL FILE ##################################
+
+# Dump the model.pkl file
+import pickle
+pickle.dump(model, open('model.pkl', 'wb'))

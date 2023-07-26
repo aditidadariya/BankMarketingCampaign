@@ -574,12 +574,10 @@ def CreateFinalModels(models, parameters):
 
 # Define BuildFinalModel function to evaluate models with their hyper-parameters
 def BuildFinalModel(final_models, dfrs, X, Y):
-    #final_models = []
     final_results = []
     names = []
     score = []
-    #final_models.clear()
-    #final_results.clear()
+    final_results.clear()
     names.clear()
     score.clear()
     # Evaluate each model in turn 
@@ -591,14 +589,13 @@ def BuildFinalModel(final_models, dfrs, X, Y):
         skfold.get_n_splits(X,Y)
         # Evaluate each model with cross validation
         cv_results = cross_val_score(model, X, Y, cv=skfold, scoring='accuracy')
+        model = model.fit(X.values,Y)
         # Store the cross validationscore into results
         final_results.append(cv_results)
-        #print(final_results)
         # Store model name into names
         names.append(name)
         # Print the results
         #print('On %s: Mean is %f and STD is %f' % (name, cv_results.mean(), cv_results.std()))
         # Store the Model Name, Mean and STD into score list
         score.append({"Model Name": name, "Accuracy - Mean": cv_results.mean(), "Accuracy - STD": cv_results.std()})
-    return score, names, final_results
-
+    return score, names, final_results, model
